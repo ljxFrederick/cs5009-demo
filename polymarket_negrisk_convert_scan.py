@@ -113,7 +113,7 @@ def main():
             except:pass
     print("NR_BOOKS",len(books),"TOKENS",len(tids),"FEES",len(fees),flush=True)
 
-    results=[]
+    results=[];hybrid=[]
     # Identity for subset S of NOs:
     # sum_{i in S} NO_i == (|S|-1) collateral + sum_{j notin S} YES_j
     # Supported adapter direction is NO -> collateral + complementary YES.
@@ -149,10 +149,41 @@ def main():
                   "collateral_out":size*(len(chosen)-1),
                   "conversion_fee_assumed":0.0
                 })
+
+            # Conditional inventory recycling: one NO leg is acquired passively at its current
+            # best bid (maker fee/rebate both assumed zero), all other selected NO legs are taker.
+            # After that fill, convert S atomically and sell complement YES at current bids.
+            # This is conditional on the maker fill and subsequent book persistence.
+            if size==1:
+                pos_others=[v for v in vals if v[3]>0]
+                for maker_v in vals:
+                    m,buy_no,sell_yes,_=maker_v
+                    no_bids=books[m["no"]][0]
+                    if not no_bids:continue
+                    maker_price=no_bids[0][0]
+                    maker_increment=size-maker_price*size-sell_yes
+                    selected=[v for v in pos_others if v is not maker_v]
+                    # Include maker leg plus any other taker legs with positive incremental value.
+                    hp=-size+total_sell_yes+maker_increment+sum(v[3] for v in selected)
+                    if hp>0:
+                        subset=[maker_v]+selected
+                        hybrid.append({
+                          "event":str(e.get("title") or e.get("slug") or ""),"event_slug":str(e.get("slug") or ""),
+                          "n":n,"size":size,"maker_NO":{"q":m["q"],"slug":m["slug"],"price":maker_price},
+                          "other_taker_NO":[{"q":v[0]["q"],"slug":v[0]["slug"],"cost":v[1]} for v in selected],
+                          "complement_YES":[{"q":v[0]["q"],"slug":v[0]["slug"],"sell_yes_proceeds":v[2]} for v in vals if v not in subset],
+                          "collateral_out":size*(len(subset)-1),
+                          "conditional_profit_before_convert_fee":hp,
+                          "conversion_fee_assumed":0.0
+                        })
     results.sort(key=lambda x:x["profit_before_convert_fee"],reverse=True)
+    hybrid.sort(key=lambda x:x["conditional_profit_before_convert_fee"],reverse=True)
     print("NR_POSITIVE",len(results),flush=True)
     for x in results[:50]:print("NR_ARB",json.dumps(x,separators=(",",":")),flush=True)
+    print("NR_HYBRID_POSITIVE",len(hybrid),flush=True)
+    for x in hybrid[:50]:print("NR_HYBRID",json.dumps(x,separators=(",",":")),flush=True)
     print("NR_SUMMARY",json.dumps({"utc":datetime.now(timezone.utc).isoformat(),
-      "events":len(candidates),"positive":len(results),"best":results[:20]},separators=(",",":")),flush=True)
+      "events":len(candidates),"positive":len(results),"best":results[:20],
+      "hybrid_positive":len(hybrid),"best_hybrid":hybrid[:20]},separators=(",",":")),flush=True)
 
 if __name__=="__main__":main()
