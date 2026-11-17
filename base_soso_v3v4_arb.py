@@ -13,14 +13,12 @@ POOLID="0x636da53e0251b3cb0b4d10dbaff488b294f97bd5212b7e2a7c1bc3fb57fd6e31"
 SOSO=Web3.to_checksum_address("0x624e2e7fdc8903165f64891672267ab0fcb98831")
 USDC=Web3.to_checksum_address("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
 
-INIT=Web3.keccak(text="Initialize(bytes32,address,address,uint24,int24,address,uint160,int24)").hex()
-logs=w3.eth.get_logs({"fromBlock":0,"toBlock":"latest","address":POOLMAN,"topics":[INIT,POOLID]})
-if not logs: raise SystemExit("Initialize log not found")
-L=logs[-1]
-c0=Web3.to_checksum_address("0x"+L["topics"][2].hex()[-40:])
-c1=Web3.to_checksum_address("0x"+L["topics"][3].hex()[-40:])
-fee,tickSpacing,hooks,sqrt,tick=w3.codec.decode(["uint24","int24","address","uint160","int24"],bytes(L["data"]))
-hooks=Web3.to_checksum_address(hooks)
+# PoolKey verified from current Uniswap routing metadata for this exact V4 pool.
+c0=SOSO
+c1=USDC
+fee=1
+tickSpacing=1
+hooks=Web3.to_checksum_address("0x0000000000000000000000000000000000000000")
 
 PABI=[{"inputs":[],"name":"fee","outputs":[{"type":"uint24"}],"stateMutability":"view","type":"function"}]
 EABI=[{"inputs":[],"name":"decimals","outputs":[{"type":"uint8"}],"stateMutability":"view","type":"function"},
@@ -63,7 +61,7 @@ valid=[x for x in rows if "profit" in x];valid.sort(key=lambda x:x["profit"],rev
 print("SOSO_V3V4_SUMMARY",json.dumps({
  "utc":datetime.now(timezone.utc).isoformat(),"block":block,
  "token":{"symbol":sym,"decimals":dec},"v3":{"pool":V3POOL,"fee":v3fee},
- "v4":{"pool_id":POOLID,"init_block":L["blockNumber"],"currency0":c0,"currency1":c1,
+ "v4":{"pool_id":POOLID,"currency0":c0,"currency1":c1,
        "fee":int(fee),"tickSpacing":int(tickSpacing),"hooks":hooks},
  "positive_count":sum(x["profit"]>0 for x in valid),"rows":valid+[x for x in rows if "error" in x]
 },separators=(",",":")),flush=True)
