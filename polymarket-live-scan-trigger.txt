@@ -1,1 +1,1 @@
-trigger exact-fee live scan 2026-11-17T01:37Z
+trigger authoritative-fd-r scan 2026-11-17T01:40Z
