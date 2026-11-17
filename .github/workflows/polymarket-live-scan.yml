@@ -8,11 +8,13 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run read-only Polymarket live scanner
+      - name: Run short-horizon scanner
         run: python polymarket_live_scan.py
+      - name: Run broad no-arbitrage scanner
+        run: python polymarket_broad_scan.py
