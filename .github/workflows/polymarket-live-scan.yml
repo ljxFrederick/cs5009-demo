@@ -16,7 +16,5 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install keccak dependency
-        run: python -m pip install --disable-pip-version-check pycryptodome
-      - name: Probe on-chain NegRisk conversion fee
-        run: python negrisk_fee_probe.py
+      - name: Probe strongest NegRisk candidate
+        run: python negrisk_candidate_probe.py
