@@ -35,7 +35,7 @@ def market_rec(x):
     d={str(o).casefold():t for o,t in zip(outs,tids)}
     if "yes" not in d or "no" not in d:return None
     return {
-      "id":str(x.get("id") or ""),"question":str(x.get("question") or ""),
+      "id":str(x.get("id") or ""),"condition_id":str(x.get("conditionId") or ""),"question":str(x.get("question") or ""),
       "slug":str(x.get("slug") or ""),"yes":d["yes"],"no":d["no"],
       "fees":bool(x.get("feesEnabled",False)),
       "end":str(x.get("endDate") or ""),"resolution":str(x.get("resolutionSource") or ""),
@@ -50,17 +50,20 @@ def parse_book(raw):
 def fetch_book(tid):
     return tid,parse_book(get_json(f"{CLOB}/book?token_id={urllib.parse.quote(tid)}"))
 
-def fetch_fee(tid):
-    raw=get_json(f"{CLOB}/fee-rate?token_id={urllib.parse.quote(tid)}")
-    # Official client names this base_fee and exposes it as fee_rate_bps.
-    return tid, float(raw.get("base_fee") or 0.0)/10000.0
+def fetch_fee_info(m):
+    cid=m["condition_id"]
+    raw=get_json(f"{CLOB}/clob-markets/{urllib.parse.quote(cid)}")
+    fd=raw.get("fd")
+    rate=float(fd.get("r") or 0.0) if isinstance(fd,dict) else 0.0
+    return cid, rate, fd
 
 def rfee(m):
-    if not m["fees"]: return 0.0
-    return FEE_RATES.get(m["yes"], MAX_FEE)
+    return FEE_RATES.get(m["condition_id"], 0.0 if not m["fees"] else MAX_FEE)
 
 def buy_net_factor(p,r): return 1-r*(1-p)
-def buy_cost(asks,target,r):
+
+def buy_cost_share_fee(asks,target,r):
+    # Legacy/help-center interpretation: fee collected in shares.
     rem=target; cost=0.0
     for p,sz in asks:
         f=buy_net_factor(p,r)
@@ -70,6 +73,23 @@ def buy_cost(asks,target,r):
         rem -= tn
         if rem<=1e-9:return cost
     return None
+
+def buy_cost_usdc_fee(asks,target,r):
+    # V2 exchange / live-fill interpretation: full shares received, fee debited in collateral.
+    rem=target; cost=0.0
+    for p,sz in asks:
+        take=min(rem,sz)
+        cost += take*(p + r*p*(1-p))
+        rem -= take
+        if rem<=1e-9:return cost
+    return None
+
+def buy_cost(asks,target,r):
+    # Robust scanner: use the more expensive of both plausible collection mechanisms.
+    a=buy_cost_share_fee(asks,target,r)
+    b=buy_cost_usdc_fee(asks,target,r)
+    if a is None or b is None:return None
+    return max(a,b)
 
 def sell_net(p,r): return p-r*p*(1-p)
 def sell_proceeds(bids,target,r):
@@ -129,16 +149,19 @@ def main():
                 pass
     print("BOOKS_FETCHED",len(books),"TOKENS_REQUESTED",len(tids),flush=True)
 
-    fee_tids=sorted({m["yes"] for m in ms if m["fees"]})
+    fee_markets=[m for m in ms if m["condition_id"]]
+    fee_meta={}
     with cf.ThreadPoolExecutor(max_workers=40) as ex:
-        futs=[ex.submit(fetch_fee,t) for t in fee_tids]
+        futs=[ex.submit(fetch_fee_info,m) for m in fee_markets]
         for f in cf.as_completed(futs):
             try:
-                tid,rate=f.result(); FEE_RATES[tid]=rate
-            except Exception as e:
+                cid,rate,fd=f.result()
+                FEE_RATES[cid]=rate
+                fee_meta[cid]=fd
+            except Exception:
                 pass
     vals=sorted(set(FEE_RATES.values()))
-    print("FEE_RATES_FETCHED",len(FEE_RATES),"FEE_ENABLED_MARKETS",len(fee_tids),
+    print("FD_RATES_FETCHED",len(FEE_RATES),"MARKETS_REQUESTED",len(fee_markets),
           "UNIQUE_RATES",vals,flush=True)
 
     complete=[]
