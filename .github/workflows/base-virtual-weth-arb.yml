@@ -1,0 +1,16 @@
+name: base-virtual-weth-arb
+on:
+  push:
+    branches: [main]
+    paths: ["base-virtual-trigger.txt"]
+  workflow_dispatch:
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install web3 -q
+      - run: python base_virtual_weth_arb.py
