@@ -1,1 +1,1 @@
-trigger 2 publicnode batched
+trigger 3 hex receipt fix
