@@ -1,1 +1,1 @@
-trigger negrisk maker inventory scan 2026-11-17T03:53Z
+trigger onchain negrisk fee probe 2026-11-17T03:55Z
