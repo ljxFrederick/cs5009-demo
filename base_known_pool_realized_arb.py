@@ -4,7 +4,7 @@ from collections import defaultdict
 from datetime import datetime,timezone
 from web3 import Web3
 
-RPC="https://base-mainnet.g.alchemy.com/public"
+RPC="https://base-rpc.publicnode.com"
 w3=Web3(Web3.HTTPProvider(RPC,request_kwargs={"timeout":15}))
 SWAP=Web3.keccak(text="Swap(address,address,int256,int256,uint160,uint128,int24)").hex()
 PABI=[{"inputs":[],"name":"token0","outputs":[{"type":"address"}],"stateMutability":"view","type":"function"},
@@ -40,11 +40,13 @@ for a,m in list(pools.items()):
 head=w3.eth.block_number;start=head-2500
 logs=[]
 addrs=list(pools)
-for lo in range(start,head+1,250):
- hi=min(head,lo+249)
- try:
-  logs.extend(w3.eth.get_logs({"fromBlock":lo,"toBlock":hi,"address":addrs,"topics":[SWAP]}))
- except Exception as e:print("LOG_ERR",lo,hi,repr(e),flush=True)
+for lo in range(start,head+1,200):
+ hi=min(head,lo+199)
+ for j in range(0,len(addrs),5):
+  batch=addrs[j:j+5]
+  try:
+   logs.extend(w3.eth.get_logs({"fromBlock":lo,"toBlock":hi,"address":batch,"topics":[SWAP]}))
+  except Exception as e:print("LOG_ERR",lo,hi,j,repr(e),flush=True)
 
 bytx=defaultdict(list)
 for L in logs:bytx[L["transactionHash"].hex()].append(L)
