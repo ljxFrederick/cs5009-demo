@@ -10,13 +10,13 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install dependencies
-        run: python -m pip install --disable-pip-version-check websockets==15.0.1 pycryptodome
-      - name: Run global RTDS NegRisk fill-conversion watcher
-        run: python global_negrisk_rtds_watch_quick.py
+      - name: Install keccak dependency
+        run: python -m pip install --disable-pip-version-check pycryptodome
+      - name: Classify observed NegRisk fills on-chain
+        run: python receipt_classify.py
