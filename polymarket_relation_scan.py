@@ -176,25 +176,49 @@ def main():
             except:pass
     print("REL_BOOKS",len(books),"TOKENS",len(involved),"FEES",len(fm),flush=True)
 
-    pos=[];near=[]
+    pos=[];near=[];hybrid=[]
     for typ,A,B,meta in relations:
         # A => B. Strict floor portfolio: NO(A) + YES(B) >= $1.
         if A["no"] not in books or B["yes"] not in books:continue
+        noA_bids,noA_asks=books[A["no"]]
+        yesB_bids,yesB_asks=books[B["yes"]]
         rA=fm.get(A["cid"],0.07 if A["fees"] else 0.0);rB=fm.get(B["cid"],0.07 if B["fees"] else 0.0)
         for s in SIZES:
-            ca=buy(books[A["no"]][1],s,rA);cb=buy(books[B["yes"]][1],s,rB)
-            if ca is None or cb is None:continue
-            p=s-ca-cb;row={"type":typ,"A":A["q"],"A_slug":A["slug"],"B":B["q"],"B_slug":B["slug"],
-              "size":s,"cost":ca+cb,"profit_floor":p,"roi_floor":p/(ca+cb),"fees":[rA,rB],"meta":meta}
-            if p>0:pos.append(row)
-            elif s==1:near.append(row)
+            ca=buy(noA_asks,s,rA);cb=buy(yesB_asks,s,rB)
+            if ca is not None and cb is not None:
+                p=s-ca-cb;row={"type":typ,"A":A["q"],"A_slug":A["slug"],"B":B["q"],"B_slug":B["slug"],
+                  "size":s,"cost":ca+cb,"profit_floor":p,"roi_floor":p/(ca+cb),"fees":[rA,rB],"meta":meta}
+                if p>0:pos.append(row)
+                elif s==1:near.append(row)
+
+            # Conditional lock after ONE maker BUY is filled, then immediately buy the other leg as taker.
+            # Maker fee/rebate is set to zero; maker rebate is deliberately excluded.
+            # This is NOT unconditional arbitrage because maker fill and hedge-book persistence are uncertain.
+            if s==1:
+                if noA_bids and cb is not None:
+                    mp=noA_bids[0][0]
+                    hp=s-(s*mp+cb)
+                    hybrid.append({"maker_leg":"NO(A)","maker_price":mp,"taker_leg":"YES(B)",
+                      "conditional_profit_floor":hp,"A":A["q"],"A_slug":A["slug"],"B":B["q"],"B_slug":B["slug"],
+                      "size":s,"taker_fee":rB,"meta":meta})
+                if yesB_bids and ca is not None:
+                    mp=yesB_bids[0][0]
+                    hp=s-(ca+s*mp)
+                    hybrid.append({"maker_leg":"YES(B)","maker_price":mp,"taker_leg":"NO(A)",
+                      "conditional_profit_floor":hp,"A":A["q"],"A_slug":A["slug"],"B":B["q"],"B_slug":B["slug"],
+                      "size":s,"taker_fee":rA,"meta":meta})
     pos.sort(key=lambda x:x["profit_floor"],reverse=True)
     near.sort(key=lambda x:x["profit_floor"],reverse=True)
+    hybrid.sort(key=lambda x:x["conditional_profit_floor"],reverse=True)
+    hpos=[x for x in hybrid if x["conditional_profit_floor"]>0]
     print("REL_POSITIVE",len(pos),flush=True)
     for x in pos[:50]:print("REL_ARB",json.dumps(x,separators=(",",":")),flush=True)
+    print("REL_HYBRID_POSITIVE",len(hpos),flush=True)
+    for x in hpos[:40]:print("REL_HYBRID",json.dumps(x,separators=(",",":")),flush=True)
     print("REL_NEAREST")
     for x in near[:20]:print("REL_NEAR",json.dumps(x,separators=(",",":")),flush=True)
     print("REL_SUMMARY",json.dumps({"utc":datetime.now(timezone.utc).isoformat(),
-      "markets":len(ms),"relations":len(relations),"positive":len(pos),"best":pos[:20],"nearest":near[:20]},separators=(",",":")),flush=True)
+      "markets":len(ms),"relations":len(relations),"positive":len(pos),"best":pos[:20],
+      "hybrid_positive":len(hpos),"best_hybrid":hpos[:20],"nearest":near[:20]},separators=(",",":")),flush=True)
 
 if __name__=="__main__":main()
