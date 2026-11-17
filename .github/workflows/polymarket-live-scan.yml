@@ -3,6 +3,8 @@ name: polymarket-live-scan
 on:
   push:
     branches: [main]
+    paths:
+      - "polymarket-live-scan-trigger.txt"
   workflow_dispatch:
 
 jobs:
