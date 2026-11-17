@@ -1,0 +1,15 @@
+name: recent-base-v3-arb-forensics
+on:
+  push:
+    branches: [main]
+    paths: ["recent-v3-arb-trigger.txt"]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install web3 -q
+      - run: python recent_base_v3_arb_forensics.py
