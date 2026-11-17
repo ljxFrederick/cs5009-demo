@@ -2,7 +2,7 @@
 from web3 import Web3
 import json
 from datetime import datetime,timezone
-RPC="https://mainnet.base.org"
+RPC="https://base-mainnet.g.alchemy.com/public"
 w3=Web3(Web3.HTTPProvider(RPC,request_kwargs={"timeout":8}))
 USDC=Web3.to_checksum_address("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913")
 WETH=Web3.to_checksum_address("0x4200000000000000000000000000000000000006")
