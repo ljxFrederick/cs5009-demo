@@ -1,0 +1,20 @@
+name: polymarket-trade-history
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "trade-history-trigger.txt"
+  workflow_dispatch:
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Query Data API v2 trade history
+        run: python polymarket_trade_history.py
