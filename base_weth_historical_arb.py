@@ -31,8 +31,13 @@ for pool in (PAN,UNI):
   except Exception as e:print("LOG_ERR",pool,lo,hi,repr(e),flush=True)
 
 # initial state before window
-sqrt={PAN:int(pc[PAN].functions.slot0().call(block_identifier=start-1)[0]),
-      UNI:int(pc[UNI].functions.slot0().call(block_identifier=start-1)[0])}
+def raw_sqrt(pool,b):
+    selector=Web3.keccak(text="slot0()")[:4]
+    raw=wc.eth.call({"to":pool,"data":selector},block_identifier=b)
+    return int.from_bytes(bytes(raw)[:32],"big")
+
+sqrt={PAN:raw_sqrt(PAN,start-1),
+      UNI:raw_sqrt(UNI,start-1)}
 byblock=defaultdict(list)
 for L in logs:byblock[int(L["blockNumber"],16) if isinstance(L["blockNumber"],str) else int(L["blockNumber"])].append(L)
 def price(s):return (s/(2**96))**2*1e12
