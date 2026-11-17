@@ -1,0 +1,16 @@
+name: polymarket-global-negrisk-rtds
+on:
+  push:
+    branches: [main]
+    paths: ["global-negrisk-trigger.txt"]
+  workflow_dispatch:
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install websockets pycryptodome
+      - run: python global_negrisk_rtds_watch_quick.py
