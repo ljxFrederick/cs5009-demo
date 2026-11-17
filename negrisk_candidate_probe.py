@@ -37,7 +37,7 @@ for x in e.get("markets") or []:
     yb,ya=levels(y,"bids"),levels(y,"asks");nb,na=levels(n,"bids"),levels(n,"asks")
     trades=[]
     try:
-        trades=get(D+"/trades?condition_id="+urllib.parse.quote(str(x.get("conditionId") or ""))+"&limit=200")
+        trades=get(D+"/trades?market="+urllib.parse.quote(str(x.get("conditionId") or ""))+"&limit=500&takerOnly=true")
         if isinstance(trades,dict):trades=trades.get("data") or trades.get("trades") or []
     except Exception as ex:
         trades=[{"error":repr(ex)}]
