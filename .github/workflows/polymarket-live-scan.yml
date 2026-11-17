@@ -10,11 +10,11 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 8
+    timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run cross-market logical no-arbitrage scanner
-        run: python polymarket_relation_scan.py
+      - name: Probe exact resolution rules for top relation
+        run: python polymarket_rules_probe.py
