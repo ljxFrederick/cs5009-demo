@@ -25,8 +25,15 @@ def sell(b,qty,r):
     return None
 
 now=time.time()
-x=get(D+"/trades?"+urllib.parse.urlencode({"condition":CID,"limit":5000}))
-rows=x.get("data") or []
+rows=[];cursor=None
+while len(rows)<5000:
+    q={"condition":CID,"limit":1000}
+    if cursor:q["cursor"]=cursor
+    x=get(D+"/trades?"+urllib.parse.urlencode(q))
+    batch=x.get("data") or []
+    rows.extend(batch)
+    cursor=(x.get("pagination") or {}).get("next_cursor")
+    if not cursor or not batch:break
 nr=[]
 for z in rows:
     if str(z.get("token_id") or "")!=NO or str(z.get("side") or "").upper()!="SELL":continue
