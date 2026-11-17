@@ -7,6 +7,8 @@ from web3 import Web3
 RPC="https://base-rpc.publicnode.com"
 w3=Web3(Web3.HTTPProvider(RPC,request_kwargs={"timeout":15}))
 SWAP=Web3.keccak(text="Swap(address,address,int256,int256,uint160,uint128,int24)").hex()
+def num(x):
+ return int(x,16) if isinstance(x,str) and x.startswith("0x") else int(x)
 PABI=[{"inputs":[],"name":"token0","outputs":[{"type":"address"}],"stateMutability":"view","type":"function"},
       {"inputs":[],"name":"token1","outputs":[{"type":"address"}],"stateMutability":"view","type":"function"},
       {"inputs":[],"name":"fee","outputs":[{"type":"uint24"}],"stateMutability":"view","type":"function"}]
@@ -66,7 +68,7 @@ for h,xs in multi.items():
   z=w3.codec.decode(["int256","int256","uint160","uint128","int24"],bytes(L["data"]))
   a0,a1=int(z[0]),int(z[1]);flows[m["t0"]]-=a0;flows[m["t1"]]-=a1
   sw.append({"pool":L["address"],"dex":m["dex"],"name":m["name"],"fee":m["fee"],
-             "a0":str(a0),"a1":str(a1),"t0":m["t0"],"t1":m["t1"],"log":L["logIndex"]})
+             "a0":str(a0),"a1":str(a1),"t0":m["t0"],"t1":m["t1"],"log":num(L["logIndex"])})
  non={a:v for a,v in flows.items() if v}
  closed=bool(non) and all(v>=0 for v in non.values())
  pairset={tuple(sorted((pools[Web3.to_checksum_address(L["address"])]["t0"].lower(),
@@ -76,10 +78,10 @@ for h,xs in multi.items():
  pretty={}
  for a,v in non.items():
   md=tm[a];pretty[md["s"]]={"raw":str(v),"amount":v/(10**md["d"])}
- out.append({"tx":h,"block":xs[0]["blockNumber"],"tx_index":xs[0]["transactionIndex"],
+ out.append({"tx":h,"block":num(xs[0]["blockNumber"]),"tx_index":num(xs[0]["transactionIndex"]),
              "closed":closed,"same_pair":len(pairset)==1,"venues":sorted({pools[Web3.to_checksum_address(L["address"])]["dex"] for L in xs}),
-             "net":pretty,"gasUsed":rec["gasUsed"],"egp_gwei":int(rec["effectiveGasPrice"])/1e9,
-             "l1Fee":int(rec.get("l1Fee") or 0),"from":tx["from"],"to":tx["to"],"swaps":sw})
+             "net":pretty,"gasUsed":num(rec["gasUsed"]),"egp_gwei":num(rec["effectiveGasPrice"])/1e9,
+             "l1Fee":num(rec.get("l1Fee") or 0),"from":tx["from"],"to":tx["to"],"swaps":sw})
 out.sort(key=lambda z:(z["closed"],z["block"],z["tx_index"]),reverse=True)
 print("KNOWN_POOL_REALIZED_SUMMARY",json.dumps({"utc":datetime.now(timezone.utc).isoformat(),
  "start":start,"head":head,"known_pools":len(pools),"swap_logs":len(logs),"multi_txs":len(multi),
