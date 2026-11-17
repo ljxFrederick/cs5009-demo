@@ -1,1 +1,1 @@
-trigger negrisk gas measurement 2026-11-17T04:03Z
+trigger websocket observer 2026-11-17T03:54Z
