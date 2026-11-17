@@ -10,7 +10,7 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -18,7 +18,7 @@ jobs:
           python-version: "3.12"
       - name: Install WebSocket dependency
         run: python -m pip install --disable-pip-version-check websockets==15.0.1
-      - name: Run WebSocket transient arbitrage watcher
-        run: python polymarket_ws_arb_watch.py
+      - name: Run frame-atomic maker/taker hedge watcher
+        run: python polymarket_ws_hybrid_watch.py
       - name: Run broad snapshot scanner
         run: python polymarket_broad_scan.py
