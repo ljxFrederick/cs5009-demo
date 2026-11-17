@@ -7,6 +7,7 @@ GAMMA="https://gamma-api.polymarket.com"
 CLOB="https://clob.polymarket.com"
 UA="Mozilla/5.0 polymarket-broad-arb-check/1.0"
 MAX_FEE=0.07
+FEE_RATES={}
 SIZES=[1,5,10,25,50,100]
 
 def get_json(url, timeout=20):
@@ -49,7 +50,14 @@ def parse_book(raw):
 def fetch_book(tid):
     return tid,parse_book(get_json(f"{CLOB}/book?token_id={urllib.parse.quote(tid)}"))
 
-def rfee(m): return MAX_FEE if m["fees"] else 0.0
+def fetch_fee(tid):
+    raw=get_json(f"{CLOB}/fee-rate?token_id={urllib.parse.quote(tid)}")
+    # Official client names this base_fee and exposes it as fee_rate_bps.
+    return tid, float(raw.get("base_fee") or 0.0)/10000.0
+
+def rfee(m):
+    if not m["fees"]: return 0.0
+    return FEE_RATES.get(m["yes"], MAX_FEE)
 
 def buy_net_factor(p,r): return 1-r*(1-p)
 def buy_cost(asks,target,r):
@@ -120,6 +128,18 @@ def main():
             except Exception:
                 pass
     print("BOOKS_FETCHED",len(books),"TOKENS_REQUESTED",len(tids),flush=True)
+
+    fee_tids=sorted({m["yes"] for m in ms if m["fees"]})
+    with cf.ThreadPoolExecutor(max_workers=40) as ex:
+        futs=[ex.submit(fetch_fee,t) for t in fee_tids]
+        for f in cf.as_completed(futs):
+            try:
+                tid,rate=f.result(); FEE_RATES[tid]=rate
+            except Exception as e:
+                pass
+    vals=sorted(set(FEE_RATES.values()))
+    print("FEE_RATES_FETCHED",len(FEE_RATES),"FEE_ENABLED_MARKETS",len(fee_tids),
+          "UNIQUE_RATES",vals,flush=True)
 
     complete=[]
     for m in ms:
