@@ -66,12 +66,19 @@ def threshold_sig(m):
 
 def deadline_sig(m):
     q=m["q"]
-    if not re.search(r"\b(by|before|through|until)\b",q,re.I):return None
+    # "event occurs by/before D": earlier deadline => later deadline.
+    # "state continues through/until D": later horizon => earlier horizon.
+    has_duration=bool(re.search(r"\b(through|until)\b",q,re.I))
+    has_occurrence=bool(re.search(r"\b(by|before)\b",q,re.I))
+    if not (has_duration or has_occurrence):return None
+    if has_duration and has_occurrence:
+        return None  # ambiguous phrasing: fail closed
+    semantic="DURATION" if has_duration else "OCCURRENCE"
     sk=q
     changed=False
     for p in DATE_PAT:
         sk,n=p.subn("<DATE>",sk);changed=changed or n>0
-    return norm(sk) if changed else None
+    return (semantic,norm(sk)) if changed else None
 
 def book(t):
     x=get_json(f"{CLOB}/book?token_id={urllib.parse.quote(t)}")
@@ -127,14 +134,23 @@ def main():
     # By-date monotonic candidates; same skeleton/source/description, order by endDate.
     dg=defaultdict(list)
     for m in ms:
-        sk=deadline_sig(m)
-        if sk:dg[(sk,m["source"],norm(m["desc"]))].append(m)
-    for xs in dg.values():
+        ds=deadline_sig(m)
+        if ds:
+            semantic,sk=ds
+            dg[(semantic,sk,m["source"],norm(m["desc"]))].append(m)
+    for (semantic,sk,src,desc),xs in dg.items():
         xs=sorted(xs,key=lambda m:m["end"])
         for i in range(len(xs)):
             for k in range(i+1,len(xs)):
-                if xs[i]["end"] and xs[k]["end"] and xs[i]["end"]<xs[k]["end"]:
-                    relations.append(("IMPL",xs[i],xs[k],{"kind":"deadline","early":xs[i]["end"],"late":xs[k]["end"]}))
+                early,later=xs[i],xs[k]
+                if not early["end"] or not later["end"] or early["end"]>=later["end"]:
+                    continue
+                if semantic=="OCCURRENCE":
+                    # Occurred by earlier date => occurred by later date.
+                    relations.append(("IMPL",early,later,{"kind":"deadline_occurrence","early":early["end"],"late":later["end"]}))
+                else:
+                    # Continued through later date => continued through earlier date.
+                    relations.append(("IMPL",later,early,{"kind":"deadline_duration","early":early["end"],"late":later["end"]}))
 
     # Deduplicate relation directions.
     uniq={}
