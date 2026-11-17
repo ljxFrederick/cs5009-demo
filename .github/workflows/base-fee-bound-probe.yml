@@ -1,0 +1,15 @@
+name: base-fee-bound-probe
+on:
+  push:
+    branches: [main]
+    paths: ["base-fee-bound-trigger.txt"]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install web3 -q
+      - run: python base_fee_bound_probe.py
