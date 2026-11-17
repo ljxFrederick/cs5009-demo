@@ -1,1 +1,1 @@
-trigger documented data api trade probe 2026-11-17T04:10Z
+trigger rtds activity sample 2026-11-17T04:12Z
