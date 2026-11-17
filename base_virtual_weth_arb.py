@@ -49,8 +49,6 @@ a0=Web3.to_checksum_address(ap.functions.token0().call(block_identifier=block))
 a1=Web3.to_checksum_address(ap.functions.token1().call(block_identifier=block))
 u0=Web3.to_checksum_address(up.functions.token0().call(block_identifier=block))
 u1=Web3.to_checksum_address(up.functions.token1().call(block_identifier=block))
-aslot=ap.functions.slot0().call(block_identifier=block)
-uslot=up.functions.slot0().call(block_identifier=block)
 
 if factory==NEW: encoded=tick | 0x80000
 elif factory==OLD: encoded=tick | 0x100000
@@ -94,9 +92,9 @@ print("VIRTUAL_ARB_SUMMARY",json.dumps({
  "utc":datetime.now(timezone.utc).isoformat(),"block":block,"gas_price_gwei":w3.eth.gas_price/1e9,
  "virtual":{"symbol":vsym,"decimals":vdec,"address":VIRTUAL},
  "aero":{"pool":AERO_POOL,"factory":factory,"tick_spacing":tick,"encoded_spacing":encoded,
-         "fee_read":aero_fee,"token0":a0,"token1":a1,"slot0_sqrt":int(aslot[0]),"tick":int(aslot[1]),
+         "fee_read":aero_fee,"token0":a0,"token1":a1,
          "mixed_quoter_v3":AERO_MIXED_V3},
- "uni":{"pool":UNI_POOL,"fee":uni_fee,"token0":u0,"token1":u1,"slot0_sqrt":int(uslot[0]),"tick":int(uslot[1]),
+ "uni":{"pool":UNI_POOL,"fee":uni_fee,"token0":u0,"token1":u1,
         "quoter":UNI_QUOTER},
  "positive_count":sum(x["profit_weth"]>0 for x in valid),
  "rows":valid+ [x for x in rows if "error" in x]
