@@ -173,7 +173,27 @@ def main():
     for x in impl[:30]:print("IMPL_ARB",json.dumps(x,separators=(",",":")),flush=True)
 
     # NegRisk event: buy one net YES in every mutually-exclusive exhaustive outcome.
-    events=list_events(300)
+    # Derive NegRisk events from the already-fetched active market records, then
+    # fetch each full event by slug. This avoids Gamma /events listing 406s.
+    event_slugs={}
+    for x in raw:
+        for ev0 in (x.get("events") or []):
+            if ev0.get("negRisk") and not ev0.get("negRiskAugmented") and ev0.get("slug"):
+                event_slugs[str(ev0["slug"])]=True
+    events=[]
+    def fetch_event_slug(slug):
+        return get_json(f"{GAMMA}/events/slug/{urllib.parse.quote(slug)}")
+    if event_slugs:
+        with cf.ThreadPoolExecutor(max_workers=20) as ex:
+            futs={ex.submit(fetch_event_slug,s):s for s in event_slugs}
+            for fut in cf.as_completed(futs):
+                try:
+                    ev=fut.result()
+                    if isinstance(ev,dict):
+                        events.append(ev)
+                except Exception as e:
+                    print("EVENT_FETCH_ERROR",futs[fut],repr(e),flush=True)
+    print("NEGRISK_EVENT_SLUGS_DERIVED",len(event_slugs),"EVENTS_FETCHED",len(events),flush=True)
     nr=[]
     nr_events=0
     for ev in events:
