@@ -1,0 +1,20 @@
+name: historical-negrisk-flow
+
+on:
+  push:
+    branches: [research-negrisk-flow]
+  workflow_dispatch:
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependency
+        run: python -m pip install --disable-pip-version-check pycryptodome
+      - name: Classify historical taker SELL flow
+        run: python historical_taker_sell_classify.py
