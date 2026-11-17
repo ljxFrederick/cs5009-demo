@@ -1,0 +1,14 @@
+name: global-binary-maker-lock
+on:
+  push:
+    branches: [main]
+    paths: ["global-binary-lock-trigger.txt"]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python global_binary_maker_lock.py
