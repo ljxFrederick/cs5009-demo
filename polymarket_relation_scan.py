@@ -1,0 +1,184 @@
+#!/usr/bin/env python3
+import concurrent.futures as cf
+import json,re,time,urllib.parse,urllib.request
+from collections import defaultdict
+from datetime import datetime,timezone
+
+GAMMA="https://gamma-api.polymarket.com";CLOB="https://clob.polymarket.com"
+UA="polymarket-cross-market-identity-scan/1.0"
+SIZES=(1,5,10,25)
+MAXN=1500
+
+def get_json(url,timeout=20,method="GET",body=None):
+    data=None;h={"User-Agent":UA,"Accept":"application/json"}
+    if body is not None:data=json.dumps(body).encode();h["Content-Type"]="application/json"
+    req=urllib.request.Request(url,data=data,headers=h,method=method)
+    with urllib.request.urlopen(req,timeout=timeout) as r:return json.loads(r.read().decode())
+
+def j(x):
+    if isinstance(x,(list,dict)):return x
+    if isinstance(x,str):
+        try:return json.loads(x)
+        except:return []
+    return []
+
+def norm(s):
+    return re.sub(r"\s+"," ",re.sub(r"[^a-z0-9$%<>.=+-]+"," ",s.casefold())).strip()
+
+def rec(x):
+    outs=[str(v) for v in j(x.get("outcomes"))];tids=[str(v) for v in j(x.get("clobTokenIds"))]
+    if len(outs)!=2 or len(tids)!=2:return None
+    mp={o.casefold():t for o,t in zip(outs,tids)}
+    if "yes" not in mp or "no" not in mp:return None
+    return {"slug":str(x.get("slug") or ""),"q":str(x.get("question") or ""),
+      "qn":norm(str(x.get("question") or "")),"yes":mp["yes"],"no":mp["no"],
+      "cid":str(x.get("conditionId") or ""),"end":str(x.get("endDate") or ""),
+      "source":str(x.get("resolutionSource") or ""),"desc":str(x.get("description") or ""),
+      "fees":bool(x.get("feesEnabled",False))}
+
+def markets():
+    out=[];off=0
+    while len(out)<MAXN:
+        n=min(100,MAXN-len(out))
+        q=urllib.parse.urlencode({"active":"true","closed":"false","limit":n,"offset":off,"order":"volumeNum","ascending":"false"})
+        a=get_json(f"{GAMMA}/markets?{q}")
+        if not a:break
+        out.extend(a);off+=len(a)
+        if len(a)<n:break
+    return [m for x in out if (m:=rec(x))]
+
+UP=re.compile(r"\b(above|over|higher than|greater than|at least|more than)\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)",re.I)
+DN=re.compile(r"\b(below|under|lower than|less than|at most|fewer than)\s*\$?([0-9][0-9,]*(?:\.[0-9]+)?)",re.I)
+DATE_PAT=[
+ re.compile(r"\b(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:tember)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\s+\d{1,2}(?:st|nd|rd|th)?(?:,?\s+\d{4})?",re.I),
+ re.compile(r"\b\d{4}-\d{2}-\d{2}\b"),
+]
+
+def threshold_sig(m):
+    q=m["q"]
+    for direction,pat in (("UP",UP),("DN",DN)):
+        z=pat.search(q)
+        if z:
+            k=float(z.group(2).replace(",",""))
+            sk=norm(q[:z.start(2)]+" <N> "+q[z.end(2):])
+            return direction,k,sk
+    return None
+
+def deadline_sig(m):
+    q=m["q"]
+    if not re.search(r"\b(by|before|through|until)\b",q,re.I):return None
+    sk=q
+    changed=False
+    for p in DATE_PAT:
+        sk,n=p.subn("<DATE>",sk);changed=changed or n>0
+    return norm(sk) if changed else None
+
+def book(t):
+    x=get_json(f"{CLOB}/book?token_id={urllib.parse.quote(t)}")
+    bids=sorted([(float(v["price"]),float(v["size"])) for v in x.get("bids",[])],reverse=True)
+    asks=sorted([(float(v["price"]),float(v["size"])) for v in x.get("asks",[])])
+    return bids,asks
+
+def fee(m):
+    try:
+        x=get_json(f"{CLOB}/clob-markets/{urllib.parse.quote(m['cid'])}")
+        fd=x.get("fd");return float(fd.get("r") or 0) if isinstance(fd,dict) else 0.0
+    except:return 0.07 if m["fees"] else 0.0
+
+def buy(asks,target,r):
+    rem=target;cost=0.0
+    for p,s in asks:
+        f=1-r*(1-p);cap=s*f;n=min(rem,cap);cost+=(n/f)*p;rem-=n
+        if rem<=1e-12:return cost
+    return None
+
+def main():
+    ms=markets();print("REL_START",datetime.now(timezone.utc).isoformat(),"markets",len(ms),flush=True)
+    byslug={m["slug"]:m for m in ms}
+    relations=[]
+
+    # Exact duplicate proposition candidates: require exact normalized question, end, source and description.
+    g=defaultdict(list)
+    for m in ms:g[(m["qn"],m["end"],m["source"],norm(m["desc"]))].append(m)
+    for xs in g.values():
+        if len(xs)>1:
+            for i in range(len(xs)):
+                for k in range(i+1,len(xs)):
+                    a,b=xs[i],xs[k]
+                    relations.append(("EQUIV",a,b,{"reason":"exact q/end/source/description"}))
+                    relations.append(("EQUIV",b,a,{"reason":"exact q/end/source/description"}))
+
+    # Numeric monotonic threshold relations.
+    tg=defaultdict(list)
+    for m in ms:
+        z=threshold_sig(m)
+        if z:
+            d,k,sk=z;tg[(d,sk,m["end"],m["source"])].append((k,m))
+    for (d,sk,end,src),xs in tg.items():
+        xs.sort(key=lambda z:z[0])
+        for i in range(len(xs)):
+            for k in range(i+1,len(xs)):
+                lo,ml=xs[i];hi,mh=xs[k]
+                if d=="UP": # high => low
+                    relations.append(("IMPL",mh,ml,{"kind":"threshold_up","from":hi,"to":lo}))
+                else: # below low => below high
+                    relations.append(("IMPL",ml,mh,{"kind":"threshold_down","from":lo,"to":hi}))
+
+    # By-date monotonic candidates; same skeleton/source/description, order by endDate.
+    dg=defaultdict(list)
+    for m in ms:
+        sk=deadline_sig(m)
+        if sk:dg[(sk,m["source"],norm(m["desc"]))].append(m)
+    for xs in dg.values():
+        xs=sorted(xs,key=lambda m:m["end"])
+        for i in range(len(xs)):
+            for k in range(i+1,len(xs)):
+                if xs[i]["end"] and xs[k]["end"] and xs[i]["end"]<xs[k]["end"]:
+                    relations.append(("IMPL",xs[i],xs[k],{"kind":"deadline","early":xs[i]["end"],"late":xs[k]["end"]}))
+
+    # Deduplicate relation directions.
+    uniq={}
+    for typ,a,b,meta in relations:
+        if a["slug"]==b["slug"]:continue
+        uniq[(typ,a["slug"],b["slug"])]=(typ,a,b,meta)
+    relations=list(uniq.values())
+    print("REL_CANDIDATES",len(relations),flush=True)
+
+    involved={t for typ,a,b,meta in relations for t in (a["yes"],a["no"],b["yes"],b["no"])}
+    books={}
+    with cf.ThreadPoolExecutor(max_workers=40) as ex:
+        fut={ex.submit(book,t):t for t in involved}
+        for f in cf.as_completed(fut):
+            try:books[fut[f]]=f.result()
+            except:pass
+    fm={}
+    cids={m["cid"]:m for typ,a,b,meta in relations for m in (a,b)}
+    with cf.ThreadPoolExecutor(max_workers=30) as ex:
+        fut={ex.submit(fee,m):cid for cid,m in cids.items()}
+        for f in cf.as_completed(fut):
+            try:fm[fut[f]]=f.result()
+            except:pass
+    print("REL_BOOKS",len(books),"TOKENS",len(involved),"FEES",len(fm),flush=True)
+
+    pos=[];near=[]
+    for typ,A,B,meta in relations:
+        # A => B. Strict floor portfolio: NO(A) + YES(B) >= $1.
+        if A["no"] not in books or B["yes"] not in books:continue
+        rA=fm.get(A["cid"],0.07 if A["fees"] else 0.0);rB=fm.get(B["cid"],0.07 if B["fees"] else 0.0)
+        for s in SIZES:
+            ca=buy(books[A["no"]][1],s,rA);cb=buy(books[B["yes"]][1],s,rB)
+            if ca is None or cb is None:continue
+            p=s-ca-cb;row={"type":typ,"A":A["q"],"A_slug":A["slug"],"B":B["q"],"B_slug":B["slug"],
+              "size":s,"cost":ca+cb,"profit_floor":p,"roi_floor":p/(ca+cb),"fees":[rA,rB],"meta":meta}
+            if p>0:pos.append(row)
+            elif s==1:near.append(row)
+    pos.sort(key=lambda x:x["profit_floor"],reverse=True)
+    near.sort(key=lambda x:x["profit_floor"],reverse=True)
+    print("REL_POSITIVE",len(pos),flush=True)
+    for x in pos[:50]:print("REL_ARB",json.dumps(x,separators=(",",":")),flush=True)
+    print("REL_NEAREST")
+    for x in near[:20]:print("REL_NEAR",json.dumps(x,separators=(",",":")),flush=True)
+    print("REL_SUMMARY",json.dumps({"utc":datetime.now(timezone.utc).isoformat(),
+      "markets":len(ms),"relations":len(relations),"positive":len(pos),"best":pos[:20],"nearest":near[:20]},separators=(",",":")),flush=True)
+
+if __name__=="__main__":main()
