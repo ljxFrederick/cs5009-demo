@@ -1,1 +1,1 @@
-trigger protocol version probe 2026-11-17T04:08Z
+trigger lightweight bbo observer 2026-11-17T04:00Z
