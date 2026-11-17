@@ -1,1 +1,1 @@
-trigger fed negrisk fill watch 2026-11-17T04:06Z
+trigger protocol version probe 2026-11-17T04:08Z
