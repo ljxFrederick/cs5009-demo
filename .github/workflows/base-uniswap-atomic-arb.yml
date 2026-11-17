@@ -1,0 +1,15 @@
+name: base-uniswap-atomic-arb
+on:
+  push:
+    branches: [main]
+    paths: ["base-uniswap-trigger.txt"]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install web3
+      - run: python base_uniswap_atomic_arb.py
