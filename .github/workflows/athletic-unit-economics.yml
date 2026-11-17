@@ -1,0 +1,13 @@
+name: athletic-unit-economics
+on:
+  push:
+    branches: [main]
+    paths: ["athletic-unit-trigger.txt"]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: python athletic_unit_econ.py
