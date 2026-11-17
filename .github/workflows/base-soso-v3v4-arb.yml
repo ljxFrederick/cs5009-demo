@@ -1,0 +1,15 @@
+name: base-soso-v3v4-arb
+on:
+  push:
+    branches: [main]
+    paths: ["base-soso-trigger.txt"]
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: {python-version: "3.12"}
+      - run: pip install web3 -q
+      - run: python base_soso_v3v4_arb.py
