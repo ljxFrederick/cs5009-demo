@@ -1,1 +1,1 @@
-trigger authoritative-fd-r scan 2026-11-17T01:40Z
+trigger websocket transient arb experiment 2026-11-17T03:29Z
