@@ -10,13 +10,13 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 6
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install keccak dependency
-        run: python -m pip install --disable-pip-version-check pycryptodome
-      - name: Measure historical NegRisk conversion gas
-        run: python negrisk_gas_probe.py
+      - name: Install WebSocket dependency
+        run: pip install websocket-client
+      - name: Run realtime WebSocket arb observer
+        run: python polymarket_ws_observer.py
