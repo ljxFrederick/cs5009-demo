@@ -10,11 +10,11 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Probe exact resolution rules for top relation
-        run: python polymarket_rules_probe.py
+      - name: Run NegRisk converter identity scanner
+        run: python polymarket_negrisk_convert_scan.py
