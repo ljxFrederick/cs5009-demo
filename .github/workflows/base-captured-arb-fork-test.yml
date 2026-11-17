@@ -1,0 +1,17 @@
+name: base-captured-arb-fork-test
+on:
+  push:
+    branches: [main]
+    paths: ["base-fork-test-trigger.txt"]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 6
+    steps:
+      - uses: actions/checkout@v4
+      - uses: foundry-rs/foundry-toolchain@v1
+      - run: forge install foundry-rs/forge-std --no-git
+      - name: Replay exact profitable Base block
+        env:
+          BASE_RPC_URL: https://base-mainnet.g.alchemy.com/public
+        run: forge test --fork-url "$BASE_RPC_URL" --fork-block-number 58497214 -vv
