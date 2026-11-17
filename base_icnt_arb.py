@@ -35,8 +35,7 @@ for usd in [1,2,5,10,20,25,50,75,100,150,200,300,500,750,1000,2000]:
                 "leg1_out_icnt":z1["out"]/(10**d),"leg1_gas":z1["gas"],"leg2_gas":z2["gas"]})
   except Exception as e: rows.append({"route":name,"in_usdc":usd,"error":repr(e)})
 valid=[x for x in rows if "profit" in x];valid.sort(key=lambda x:x["profit"],reverse=True)
-us=uc.functions.slot0().call(block_identifier=b);ps=pc.functions.slot0().call(block_identifier=b)
 print("ICNT_ARB_SUMMARY",json.dumps({"utc":datetime.now(timezone.utc).isoformat(),"block":b,
- "token":{"symbol":sym,"decimals":d},"fees":{"uni":uc.functions.fee().call(block_identifier=b),"pan":pc.functions.fee().call(block_identifier=b)},
- "ticks":{"uni":int(us[1]),"pan":int(ps[1])},"positive_count":sum(x["profit"]>0 for x in valid),
+ "token":{"symbol":sym,"decimals":d},"fee_path_pips":500,
+ "positive_count":sum(x["profit"]>0 for x in valid),
  "rows":valid+[x for x in rows if "error" in x]},separators=(",",":")),flush=True)
