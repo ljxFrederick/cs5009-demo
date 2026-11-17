@@ -16,7 +16,7 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Install WebSocket dependency
-        run: python -m pip install --disable-pip-version-check websockets==15.0.1
-      - name: Watch strongest NegRisk maker fill candidate
-        run: python negrisk_fill_watch.py
+      - name: Install keccak dependency
+        run: python -m pip install --disable-pip-version-check pycryptodome
+      - name: Measure historical NegRisk conversion gas
+        run: python negrisk_gas_probe.py
