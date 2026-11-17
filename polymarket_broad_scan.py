@@ -86,7 +86,7 @@ def list_events(maxn=300):
     out=[]; off=0
     while len(out)<maxn:
         n=min(100,maxn-len(out))
-        q=urllib.parse.urlencode({"active":"true","closed":"false","limit":n,"offset":off,"order":"volume","ascending":"false"})
+        q=urllib.parse.urlencode({"active":"true","closed":"false","limit":n,"offset":off})
         arr=get_json(f"{GAMMA}/events?{q}")
         if not arr:break
         out.extend(arr); off += len(arr)
