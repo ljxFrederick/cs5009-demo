@@ -1,0 +1,23 @@
+name: negrisk-jump-monitor
+
+on:
+  push:
+    branches: [research-negrisk-flow]
+    paths:
+      - ".github/workflows/negrisk-jump-monitor.yml"
+      - "negrisk_jump_monitor.py"
+  workflow_dispatch:
+
+jobs:
+  monitor:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependency
+        run: python -m pip install --disable-pip-version-check pycryptodome
+      - name: Monitor all-market jump-the-queue conversion edges
+        run: python negrisk_jump_monitor.py
