@@ -10,11 +10,13 @@ on:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 6
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Probe candidate protocol versions
-        run: python protocol_version_probe.py
+      - name: Install WebSocket dependency
+        run: pip install websocket-client
+      - name: Run lightweight BBO arb observer
+        run: python polymarket_bbo_observer.py
