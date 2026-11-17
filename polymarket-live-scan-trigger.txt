@@ -1,1 +1,1 @@
-trigger global rtds negrisk observed-fill scan 2026-11-17T04:15Z
+trigger quick global rtds negrisk scan 2026-11-17T04:17Z
